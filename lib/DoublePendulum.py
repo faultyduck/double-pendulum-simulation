@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.integrate import solve_ivp
 
+# https://physics.umd.edu/hep/drew/pendulum2.html
 class DoublePendulum:
     def __init__(
         self, g=9.81,
