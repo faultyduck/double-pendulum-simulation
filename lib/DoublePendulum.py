@@ -7,7 +7,7 @@ class DoublePendulum:
         self, g=9.81,
         m1=1.0, m2=1.0,
         l1=1.0, l2=1.0,
-        theta1=0.0, theta2=0.0,
+        theta1=30.0, theta2=0.0,
         omega1=0.0, omega2=0.0,
     ):
         self.g = g
