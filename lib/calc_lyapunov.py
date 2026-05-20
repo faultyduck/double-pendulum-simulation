@@ -1,8 +1,10 @@
 import numpy as np
 from .DoublePendulum import DoublePendulum
 
-def get_lyapunov(pendulum, epsilon, T, dt):
+def get_lyapunov(pendulum, epsilon, T, dt, checkpoints=None):
     scores = []
+    results = {}
+    
     pendulum_2 = DoublePendulum(
             g=pendulum.g,
             m1=pendulum.m1, m2=pendulum.m2,
@@ -10,6 +12,7 @@ def get_lyapunov(pendulum, epsilon, T, dt):
             theta1=pendulum.theta1 + epsilon, theta2=pendulum.theta2,
             omega1=pendulum.omega1, omega2=pendulum.omega2
         )
+    t = 0.0
     for _ in np.arange(0, T, dt):
         # advance both simulations
         pendulum.step(dt)
@@ -39,4 +42,10 @@ def get_lyapunov(pendulum, epsilon, T, dt):
         pendulum_2.omega1 = pendulum.omega1 + d3 * scale
         pendulum_2.omega2 = pendulum.omega2 + d4 * scale
 
-    return np.sum(scores)/T
+        t += dt
+        t_rounded = round(t, 5)
+        if round(t, 5) in checkpoints:
+            results[round(t, 5)] =  np.sum(scores)/t_rounded
+
+    results[T] = np.sum(scores)/T
+    return results
