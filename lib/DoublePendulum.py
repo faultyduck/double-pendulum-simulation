@@ -1,4 +1,5 @@
 import numpy as np
+import cupy as cp
 from scipy.integrate import solve_ivp
 
 # https://physics.umd.edu/hep/drew/pendulum2.html
@@ -46,21 +47,33 @@ class DoublePendulum:
         x2, y2 = xy2
         return self.m1*self.g*y1 + self.m2*self.g*y2
 
-    def _derivs(self, theta1, theta2, omega1, omega2):
+    def _derivs(self, theta1, theta2, omega1, omega2, xp=np):
         M = self.m1 + self.m2
         delta = theta1 - theta2
-        alpha = M - self.m2 * np.sin(delta)**2
+        alpha = M - self.m2 * xp.sin(delta)**2
         num1 = (
-            -np.sin(delta) * (self.m2*self.l1*omega1**2*np.cos(delta)
+            -xp.sin(delta) * (self.m2*self.l1*omega1**2*xp.cos(delta)
                               + self.m2*self.l2*omega2**2)
-            - self.g*(M*np.sin(theta1) - self.m2*np.sin(theta2)*np.cos(delta))
+            - self.g*(M*xp.sin(theta1) - self.m2*xp.sin(theta2)*xp.cos(delta))
         ) # -- Equation 6
         num2 = (
-            np.sin(delta) * (M*self.l1*omega1**2
-                             + self.m2*self.l2*omega2**2*np.cos(delta))
-            + self.g*(M*np.sin(theta1)*np.cos(delta) - M*np.sin(theta2))
+            xp.sin(delta) * (M*self.l1*omega1**2
+                             + self.m2*self.l2*omega2**2*xp.cos(delta))
+            + self.g*(M*xp.sin(theta1)*xp.cos(delta) - M*xp.sin(theta2))
         ) # -- Equation 7
         return omega1, omega2, num1/(self.l1*alpha), num2/(self.l2*alpha)
+
+    def _rk4(self, dt):
+        th1, th2, w1, w2 = self.theta1, self.theta2, self.omega1, self.omega2
+        d1 = self._derivs(th1, th2, w1, w2, xp=cp)
+        d2 = self._derivs(*(s + dt/2*k for s, k in zip((th1,th2,w1,w2), d1)), xp=cp)
+        d3 = self._derivs(*(s + dt/2*k for s, k in zip((th1,th2,w1,w2), d2)), xp=cp)
+        d4 = self._derivs(*(s + dt   *k for s, k in zip((th1,th2,w1,w2), d3)), xp=cp)
+        self.theta1, self.theta2, self.omega1, self.omega2 = tuple(
+            s + dt/6*(k1+2*k2+2*k3+k4)
+            for s,k1,k2,k3,k4 in zip((th1,th2,w1,w2),d1,d2,d3,d4)
+        )
+
 
     def _derivs_flat(self, t, state): # t unused, but scipy needs it
         return self._derivs(*state)
