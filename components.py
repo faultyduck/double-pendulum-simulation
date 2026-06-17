@@ -1,21 +1,21 @@
 import pygame as py
 
 BORDER = (210, 210, 210)
-WHITE  = (255, 255, 255)
-BLACK  = ( 30,  30,  30)
-BLUE   = ( 40, 110, 220)
+WHITE = (255, 255, 255)
+BLACK = (30, 30, 30)
+BLUE = (40, 110, 220)
 
 py.font.init()
 FONT_LABEL = py.font.SysFont("Segoe UI", 13)
-FONT_MED   = py.font.SysFont("Segoe UI", 14)
+FONT_MED = py.font.SysFont("Segoe UI", 14)
 
 class Slider:
     def __init__(self, x, y, w, val_min, val_max, initial, color=BLUE):
-        self.rect     = py.Rect(x, y, w, 4)
-        self.min      = val_min
-        self.max      = val_max
-        self.value    = initial
-        self.color    = color
+        self.rect = py.Rect(x, y, w, 4)
+        self.min = val_min
+        self.max = val_max
+        self.value = initial
+        self.color = color
         self.dragging = False
         self.handle_r = 7
 
@@ -57,14 +57,14 @@ class Slider:
 
 class TextInput: 
     def __init__(self, x, y, w, h, initial, val_min, val_max, color=BLUE, decimals=0):
-        self.rect     = py.Rect(x, y, w, h)
-        self.min      = val_min
-        self.max      = val_max
-        self.value    = initial
-        self.active   = False
-        self.color    = color
+        self.rect = py.Rect(x, y, w, h)
+        self.min = val_min
+        self.max = val_max
+        self.value = initial
+        self.active = False
+        self.color = color
         self.decimals = decimals
-        self.text     = self._fmt(initial)
+        self.text = self._fmt(initial)
 
     def _fmt(self, v):
         if self.decimals == 0:
@@ -109,12 +109,12 @@ class TextInput:
 
 class Button:
     def __init__(self, x, y, w, h, text, color, hover_color, text_color=WHITE):
-        self.rect        = py.Rect(x, y, w, h)
-        self.text        = text
-        self.color       = color
+        self.rect = py.Rect(x, y, w, h)
+        self.text = text
+        self.color = color
         self.hover_color = hover_color
-        self.text_color  = text_color
-        self.hovered     = False
+        self.text_color = text_color
+        self.hovered = False
 
     def handle_event(self, event): #handles pressing etc
         if event.type == py.MOUSEMOTION:
