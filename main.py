@@ -207,6 +207,7 @@ def main():
                 #pendulum.step(DT)
             #elapsed_sim += DT * SIM_SPEED
             pendulum.step(DT)
+            elapsed_sim += DT #time countdown increase
             (x1, y1), (x2, y2) = pendulum.get_coordinates()
             pos1 = (int(ORIGIN[0] + x1 * SCALE), int(ORIGIN[1] - y1 * SCALE))
             pos2 = (int(ORIGIN[0] + x2 * SCALE), int(ORIGIN[1] - y2 * SCALE))
