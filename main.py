@@ -1,5 +1,6 @@
 import pygame as py
 from lib import DoublePendulum
+from components import Slider, TextInput, Button #import UI
 import sys
 import math
 from collections import deque
@@ -42,125 +43,14 @@ FONT_SMALL = py.font.SysFont("Segoe UI", 11)
 FONT_BIG   = py.font.SysFont("Segoe UI", 26, bold=True)
 FONT_MED   = py.font.SysFont("Segoe UI", 14)
 
-class Slider:
-    def __init__(self, x, y, w, val_min, val_max, initial, color=BLUE):
-        self.rect     = py.Rect(x, y, w, 4)
-        self.min      = val_min
-        self.max      = val_max
-        self.value    = initial
-        self.color    = color
-        self.dragging = False
-        self.handle_r = 7
-
-    @property
-    def handle_x(self):
-        t = (self.value - self.min) / (self.max - self.min)
-        return int(self.rect.x + t * self.rect.w)
-
-    @property
-    def handle_rect(self):
-        hx = self.handle_x
-        r  = self.handle_r
-        return py.Rect(hx - r, self.rect.centery - r, r * 2, r * 2)
-
-    def handle_event(self, event): #handles mouse clicks
-        if event.type == py.MOUSEBUTTONDOWN:
-            if self.handle_rect.collidepoint(event.pos) or \
-               self.rect.inflate(0, 20).collidepoint(event.pos): #easier click
-                self.dragging = True
-        elif event.type == py.MOUSEBUTTONUP:
-            self.dragging = False #turns off dragging when not clicked
-        elif event.type == py.MOUSEMOTION and self.dragging:
-            rel_x = max(self.rect.x, min(event.pos[0], self.rect.right))
-            t = (rel_x - self.rect.x) / self.rect.w
-            self.value = self.min + t * (self.max - self.min)
-        return self.dragging
-
-    def draw(self, surf): #draw slider
-        py.draw.rect(surf, BORDER, self.rect, border_radius=2)
-        fill_w = max(0, self.handle_x - self.rect.x)
-        py.draw.rect(surf, self.color,
-                     py.Rect(self.rect.x, self.rect.y, fill_w, self.rect.h),
-                     border_radius=2)
-        hx = self.handle_x
-        cy = self.rect.centery
-        py.draw.circle(surf, self.color, (hx, cy), self.handle_r)
-        py.draw.circle(surf, WHITE,      (hx, cy), self.handle_r - 3)
-        py.draw.circle(surf, self.color, (hx, cy), 3)
-
-class TextInput: #text input for slider
-    def __init__(self, x, y, w, h, initial, val_min, val_max, color=BLUE):
-        self.rect   = py.Rect(x, y, w, h)
-        self.min    = val_min
-        self.max    = val_max
-        self.value  = initial
-        self.text   = str(int(initial))
-        self.active = False
-        self.color  = color
-
-    def handle_event(self, event):
-        if event.type == py.MOUSEBUTTONDOWN:
-            self.active = self.rect.collidepoint(event.pos)
-            if self.active:
-                self.text = str(int(self.value))
-        elif event.type == py.KEYDOWN and self.active:
-            if event.key in (py.K_RETURN, py.K_KP_ENTER):
-                self._commit()
-                self.active = False
-            elif event.key == py.K_BACKSPACE:
-                self.text = self.text[:-1]
-            elif event.unicode in "0123456789.-":
-                if len(self.text) < 6:
-                    self.text += event.unicode
-
-    def _commit(self):
-        try:
-            v = float(self.text)
-            self.value = max(self.min, min(self.max, v))
-        except ValueError:
-            pass
-        self.text = str(int(self.value))
-
-    def set_value(self, v):
-        self.value = v
-        if not self.active:
-            self.text = str(int(round(v)))
-
-    def draw(self, surf):
-        border_col = self.color if self.active else BORDER
-        py.draw.rect(surf, WHITE, self.rect, border_radius=4)
-        py.draw.rect(surf, border_col, self.rect, 1, border_radius=4)
-        display = self.text + ("|" if self.active else "")
-        t = FONT_LABEL.render(display, True, BLACK)
-        surf.blit(t, (self.rect.x + 5, self.rect.centery - t.get_height() // 2))
-
-class Button:
-    def __init__(self, x, y, w, h, text, color, hover_color, text_color=WHITE):
-        self.rect        = py.Rect(x, y, w, h)
-        self.text        = text
-        self.color       = color
-        self.hover_color = hover_color
-        self.text_color  = text_color
-        self.hovered     = False
-
-    def handle_event(self, event): #handles pressing etc
-        if event.type == py.MOUSEMOTION:
-            self.hovered = self.rect.collidepoint(event.pos)
-        elif event.type == py.MOUSEBUTTONDOWN:
-            if self.rect.collidepoint(event.pos):
-                return True
-        return False
-
-    def draw(self, surf): #draw and hover
-        col = self.hover_color if self.hovered else self.color
-        py.draw.rect(surf, col, self.rect, border_radius=5)
-        t = FONT_MED.render(self.text, True, self.text_color)
-        surf.blit(t, (self.rect.centerx - t.get_width() // 2,
-                      self.rect.centery - t.get_height() // 2))
 
 def main():
     init_theta1 = 120.0 #initial angles
     init_theta2 = 150.0
+    init_m1     = 1.0   #initial masses
+    init_m2     = 1.0
+    init_l1     = 1.0   #initial lengths
+    init_l2     = 1.0
 
     pendulum = DoublePendulum(
         theta1=math.radians(init_theta1), #calling double pendulum math file
@@ -175,26 +65,56 @@ def main():
     px = PANEL_X + 14
     pw = PANEL_W - 28
     input_w, input_h = 54, 22
+    ROW_GAP = input_h + 8 + 14 + 20  # label row + slider + spacing
 
-    # Layout:
-    ROW1_Y   = 70    #angle 1 label placement
-    SLIDE1_Y = ROW1_Y + input_h + 8   #slider 1 placement
+    # Layout — angles
+    ROW1_Y   = 70
+    SLIDE1_Y = ROW1_Y + input_h + 8
+    ROW2_Y   = SLIDE1_Y + 14 + 20
+    SLIDE2_Y = ROW2_Y + input_h + 8
 
-    ROW2_Y   = SLIDE1_Y + 14 + 20 #angle 2 label placement
-    SLIDE2_Y = ROW2_Y + input_h + 8 #slider 2 placement
+    # Layout — masses (below angles)
+    SEC_MASS_Y = SLIDE2_Y + 18 + 20   # section divider label
+    ROW3_Y     = SEC_MASS_Y + 18
+    SLIDE3_Y   = ROW3_Y + input_h + 8
+    ROW4_Y     = SLIDE3_Y + 14 + 20
+    SLIDE4_Y   = ROW4_Y + input_h + 8
 
-    #calling slider function
+    # Layout — lengths (below masses)
+    SEC_LEN_Y = SLIDE4_Y + 18 + 20
+    ROW5_Y    = SEC_LEN_Y + 18
+    SLIDE5_Y  = ROW5_Y + input_h + 8
+    ROW6_Y    = SLIDE5_Y + 14 + 20
+    SLIDE6_Y  = ROW6_Y + input_h + 8
+
+    #calling slider function — angles
     s_theta1 = Slider(px, SLIDE1_Y, pw, -180, 180, init_theta1, color=BLUE)
     s_theta2 = Slider(px, SLIDE2_Y, pw, -180, 180, init_theta2, color=RED)
 
-    #calling text input function
+    #calling slider function — masses
+    s_m1 = Slider(px, SLIDE3_Y, pw, 0.1, 10.0, init_m1, color=BLUE)
+    s_m2 = Slider(px, SLIDE4_Y, pw, 0.1, 10.0, init_m2, color=RED)
+
+    #calling slider function — lengths
+    s_l1 = Slider(px, SLIDE5_Y, pw, 1.0, 2.0, init_l1, color=BLUE)
+    s_l2 = Slider(px, SLIDE6_Y, pw, 1.0, 2.0, init_l2, color=RED)
+
+    #calling text input function — angles
     input_x = PANEL_X + PANEL_W - 14 - input_w
-    ti_theta1 = TextInput(input_x, ROW1_Y,  input_w, input_h, init_theta1, -180, 180, color=BLUE)
-    ti_theta2 = TextInput(input_x, ROW2_Y,  input_w, input_h, init_theta2, -180, 180, color=RED)
+    ti_theta1 = TextInput(input_x, ROW1_Y, input_w, input_h, init_theta1, -180, 180, color=BLUE)
+    ti_theta2 = TextInput(input_x, ROW2_Y, input_w, input_h, init_theta2, -180, 180, color=RED)
+
+    #calling text input function — masses
+    ti_m1 = TextInput(input_x, ROW3_Y, input_w, input_h, init_m1, 0.1, 10.0, color=BLUE, decimals=1)
+    ti_m2 = TextInput(input_x, ROW4_Y, input_w, input_h, init_m2, 0.1, 10.0, color=RED,  decimals=1)
+
+    #calling text input function — lengths
+    ti_l1 = TextInput(input_x, ROW5_Y, input_w, input_h, init_l1, 0.1, 5.0, color=BLUE, decimals=1)
+    ti_l2 = TextInput(input_x, ROW6_Y, input_w, input_h, init_l2, 0.1, 5.0, color=RED,  decimals=1)
 
     #calling button functions
-    pcx = PANEL_X + PANEL_W // 2
-    HINT_Y  = SLIDE2_Y + 28
+    pcx     = PANEL_X + PANEL_W // 2
+    HINT_Y  = SLIDE6_Y + 28
     BTN_Y   = HINT_Y + 22
     RESET_Y = BTN_Y + 42
 
@@ -213,42 +133,58 @@ def main():
                 elif event.key == py.K_SPACE:
                     simulating = not simulating
 
-            s1_drag = s_theta1.handle_event(event) #handling slider 1
-            s2_drag = s_theta2.handle_event(event) #handling slider 2
-            ti_theta1.handle_event(event) #handling text input 1
-            ti_theta2.handle_event(event) #handling text input 2
+            s1_drag  = s_theta1.handle_event(event) #handling angle sliders
+            s2_drag  = s_theta2.handle_event(event)
+            sm1_drag = s_m1.handle_event(event)      #handling mass sliders
+            sm2_drag = s_m2.handle_event(event)
+            sl1_drag = s_l1.handle_event(event)      #handling length sliders
+            sl2_drag = s_l2.handle_event(event)
+            ti_theta1.handle_event(event)            #handling text inputs
+            ti_theta2.handle_event(event)
+            ti_m1.handle_event(event)
+            ti_m2.handle_event(event)
+            ti_l1.handle_event(event)
+            ti_l2.handle_event(event)
 
-            #Sync slider with input
-            if s1_drag:
-                ti_theta1.set_value(s_theta1.value)
-            if s2_drag:
-                ti_theta2.set_value(s_theta2.value)
-            #Sync input with slider (after commit / click-away)
-            if not ti_theta1.active:
-                s_theta1.value = ti_theta1.value
-            if not ti_theta2.active:
-                s_theta2.value = ti_theta2.value
+            #Sync sliders → inputs
+            if s1_drag:  ti_theta1.set_value(s_theta1.value) #taking s_theta1 value from slider as initial values to be simulated
+            if s2_drag:  ti_theta2.set_value(s_theta2.value)
+            if sm1_drag: ti_m1.set_value(s_m1.value)
+            if sm2_drag: ti_m2.set_value(s_m2.value)
+            if sl1_drag: ti_l1.set_value(s_l1.value)
+            if sl2_drag: ti_l2.set_value(s_l2.value)
+            #Sync inputs → sliders (after commit / click-away)
+            if not ti_theta1.active: s_theta1.value = ti_theta1.value
+            if not ti_theta2.active: s_theta2.value = ti_theta2.value
+            if not ti_m1.active:     s_m1.value     = ti_m1.value
+            if not ti_m2.active:     s_m2.value     = ti_m2.value
+            if not ti_l1.active:     s_l1.value     = ti_l1.value
+            if not ti_l2.active:     s_l2.value     = ti_l2.value
 
             if btn_play.handle_event(event): #handling button play
                 if not simulating:
                     pendulum = DoublePendulum(
-                        theta1=math.radians(s_theta1.value), #taking s_theta1 value from slider as initial values to be simulated
-                        theta2=math.radians(s_theta2.value)
+                        theta1=math.radians(s_theta1.value),
+                        theta2=math.radians(s_theta2.value),
+                        m1=s_m1.value, m2=s_m2.value,
+                        l1=s_l1.value, l2=s_l2.value,
                     )
-                    trail.clear() #clear previous trail
+                    trail.clear()
                     elapsed_sim = 0.0 #reset elapsed time
-                simulating = True #start simulation
+                simulating = True
 
             if btn_stop.handle_event(event): #handling button stop
-                simulating = False #stop simulation
+                simulating = False
 
             if btn_reset.handle_event(event): #handling button reset
-                simulating = False #stop simulation
-                elapsed_sim = 0.0 #reset elapsed time
-                trail.clear() #clear previous trail
+                simulating = False
+                elapsed_sim = 0.0
+                trail.clear()
                 pendulum = DoublePendulum(
-                    theta1=math.radians(s_theta1.value), #taking s_theta1 value from slider as initial values to be reset
-                    theta2=math.radians(s_theta2.value) #taking s_theta2 value from slider as initial values to be reset
+                    theta1=math.radians(s_theta1.value),
+                    theta2=math.radians(s_theta2.value),
+                    m1=s_m1.value, m2=s_m2.value,
+                    l1=s_l1.value, l2=s_l2.value,
                 )
 
         if simulating:
@@ -304,17 +240,48 @@ def main():
         screen.blit(t_title, (PANEL_X + PANEL_W // 2 - t_title.get_width() // 2, 18))
         py.draw.line(screen, BORDER, (PANEL_X + 10, 42), (PANEL_X + PANEL_W - 10, 42), 1)
 
-        t_lbl1 = FONT_LABEL.render("θ₁  Angle 1", True, BLUE) #draw label 1
+        # --- Angle rows ---
+        t_lbl1 = FONT_LABEL.render("θ₁  Angle 1", True, BLUE)
         screen.blit(t_lbl1, (px, ROW1_Y + (input_h - t_lbl1.get_height()) // 2))
         ti_theta1.draw(screen)
         s_theta1.draw(screen)
 
-        t_lbl2 = FONT_LABEL.render("θ₂  Angle 2", True, RED) #draw label 2
+        t_lbl2 = FONT_LABEL.render("θ₂  Angle 2", True, RED)
         screen.blit(t_lbl2, (px, ROW2_Y + (input_h - t_lbl2.get_height()) // 2))
         ti_theta2.draw(screen)
         s_theta2.draw(screen)
 
-        hint = FONT_SMALL.render("Type value & press Enter  (−180° to 180°)", True, DIM)
+        #Mass
+        py.draw.line(screen, BORDER, (PANEL_X + 10, SEC_MASS_Y - 8), (PANEL_X + PANEL_W - 10, SEC_MASS_Y - 8), 1)
+        t_sec_mass = FONT_SMALL.render("MASS  (kg)", True, DIM)
+        screen.blit(t_sec_mass, (PANEL_X + PANEL_W // 2 - t_sec_mass.get_width() // 2, SEC_MASS_Y))
+
+        t_lbl3 = FONT_LABEL.render("m₁  Mass 1", True, BLUE)
+        screen.blit(t_lbl3, (px, ROW3_Y + (input_h - t_lbl3.get_height()) // 2))
+        ti_m1.draw(screen)
+        s_m1.draw(screen)
+
+        t_lbl4 = FONT_LABEL.render("m₂  Mass 2", True, RED)
+        screen.blit(t_lbl4, (px, ROW4_Y + (input_h - t_lbl4.get_height()) // 2))
+        ti_m2.draw(screen)
+        s_m2.draw(screen)
+
+        #Length
+        py.draw.line(screen, BORDER, (PANEL_X + 10, SEC_LEN_Y - 8), (PANEL_X + PANEL_W - 10, SEC_LEN_Y - 8), 1)
+        t_sec_len = FONT_SMALL.render("LENGTH  (m)", True, DIM)
+        screen.blit(t_sec_len, (PANEL_X + PANEL_W // 2 - t_sec_len.get_width() // 2, SEC_LEN_Y))
+
+        t_lbl5 = FONT_LABEL.render("l₁  Rod 1", True, BLUE)
+        screen.blit(t_lbl5, (px, ROW5_Y + (input_h - t_lbl5.get_height()) // 2))
+        ti_l1.draw(screen)
+        s_l1.draw(screen)
+
+        t_lbl6 = FONT_LABEL.render("l₂  Rod 2", True, RED)
+        screen.blit(t_lbl6, (px, ROW6_Y + (input_h - t_lbl6.get_height()) // 2))
+        ti_l2.draw(screen)
+        s_l2.draw(screen)
+
+        hint = FONT_SMALL.render("Type value & press Enter", True, DIM)
         screen.blit(hint, (PANEL_X + PANEL_W // 2 - hint.get_width() // 2, HINT_Y))
 
         py.draw.line(screen, BORDER,
@@ -334,7 +301,6 @@ def main():
 
     py.quit()
     sys.exit()
-
 
 if __name__ == "__main__":
     main()
