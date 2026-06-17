@@ -47,6 +47,15 @@ class DoublePendulum:
         x2, y2 = xy2
         return self.m1*self.g*y1 + self.m2*self.g*y2
 
+
+    def total_energy(self):
+        return self.sum_ke() + self.sum_pe()
+
+    def pe_min(self):
+        """Potential energy at the bottom (tehta_1=tehta_2=0)."""
+        return -(self.m1 + self.m2)*self.g*self.l1 - self.m2*self.g*self.l2
+
+
     def _derivs(self, theta1, theta2, omega1, omega2, xp=np):
         M = self.m1 + self.m2
         delta = theta1 - theta2
